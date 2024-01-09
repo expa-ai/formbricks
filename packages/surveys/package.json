@@ -51,5 +51,8 @@
     "serve": "14.2.1",
     "concurrently": "8.2.2",
     "@calcom/embed-snippet": "1.1.2"
+  },
+  "dependencies": {
+    "react-phone-number-input": "^3.3.9"
   }
 }
