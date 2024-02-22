@@ -79,6 +79,7 @@ export default function RatingQuestion({
 
   return (
     <form
+      key={question.id}
       onSubmit={(e) => {
         e.preventDefault();
         const updatedTtcObj = getUpdatedTtc(ttc, question.id, performance.now() - startTime);
@@ -126,7 +127,9 @@ export default function RatingQuestion({
                     }}
                     className={cn(
                       "flex h-full w-full justify-center focus:outline-none",
-                      number <= hoveredNumber ? "text-amber-400" : "text-slate-300",
+                      number <= hoveredNumber || number <= (value as number)
+                        ? "text-amber-400"
+                        : "text-slate-300",
                       "hover:text-amber-400"
                     )}
                     onFocus={() => setHoveredNumber(number)}

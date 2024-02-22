@@ -11,14 +11,17 @@ import { getFilterResponses } from "@/app/lib/surveys/surveys";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
+import { checkForRecallInHeadline } from "@formbricks/lib/utils/recall";
 import { TEnvironment } from "@formbricks/types/environment";
 import { TMembershipRole } from "@formbricks/types/memberships";
 import { TProduct } from "@formbricks/types/product";
-import { TResponse } from "@formbricks/types/responses";
+import { TResponse, TSurveyPersonAttributes } from "@formbricks/types/responses";
 import { TSurvey } from "@formbricks/types/surveys";
 import { TTag } from "@formbricks/types/tags";
 import { TUser } from "@formbricks/types/user";
 import ContentWrapper from "@formbricks/ui/ContentWrapper";
+
+import ResultsShareButton from "../../../components/ResultsShareButton";
 
 interface SummaryPageProps {
   environment: TEnvironment;
@@ -29,6 +32,7 @@ interface SummaryPageProps {
   product: TProduct;
   user: TUser;
   environmentTags: TTag[];
+  attributes: TSurveyPersonAttributes;
   displayCount: number;
   responsesPerPage: number;
   membershipRole?: TMembershipRole;
@@ -43,6 +47,7 @@ const SummaryPage = ({
   product,
   user,
   environmentTags,
+  attributes,
   displayCount,
   responsesPerPage,
   membershipRole,
@@ -50,7 +55,9 @@ const SummaryPage = ({
   const { selectedFilter, dateRange, resetState } = useResponseFilter();
   const [showDropOffs, setShowDropOffs] = useState<boolean>(false);
   const searchParams = useSearchParams();
-
+  survey = useMemo(() => {
+    return checkForRecallInHeadline(survey);
+  }, [survey]);
   useEffect(() => {
     if (!searchParams?.get("referer")) {
       resetState();
@@ -73,12 +80,15 @@ const SummaryPage = ({
         user={user}
         membershipRole={membershipRole}
       />
-      <CustomFilter
-        environmentTags={environmentTags}
-        responses={filterResponses}
-        survey={survey}
-        totalResponses={responses}
-      />
+      <div className="flex gap-1.5">
+        <CustomFilter
+          environmentTags={environmentTags}
+          attributes={attributes}
+          responses={filterResponses}
+          survey={survey}
+        />
+        <ResultsShareButton survey={survey} webAppUrl={webAppUrl} product={product} user={user} />
+      </div>
       <SurveyResultsTabs activeId="summary" environmentId={environment.id} surveyId={surveyId} />
       <SummaryMetadata
         responses={filterResponses}

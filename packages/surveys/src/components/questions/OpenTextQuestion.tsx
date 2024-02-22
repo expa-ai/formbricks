@@ -55,12 +55,14 @@ export default function OpenTextQuestion({
     },
     [question.id, autoFocus]
   );
+
   const isInputEmpty = (value: string) => {
     return question.required && !value?.trim();
   };
 
   return (
     <form
+      key={question.id}
       onSubmit={(e) => {
         e.preventDefault();
         //  if ( validateInput(value as string, question.inputType, question.required)) {

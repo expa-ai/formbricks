@@ -24,12 +24,14 @@ type TSigninFormState = {
 };
 
 export const SigninForm = ({
+  emailAuthEnabled,
   publicSignUpEnabled,
   passwordResetEnabled,
   googleOAuthEnabled,
   githubOAuthEnabled,
   azureOAuthEnabled,
 }: {
+  emailAuthEnabled: boolean;
   publicSignUpEnabled: boolean;
   passwordResetEnabled: boolean;
   googleOAuthEnabled: boolean;
@@ -185,21 +187,23 @@ export const SigninForm = ({
                 )}
               </div>
             )}
-            <Button
-              onClick={() => {
-                if (!showLogin) {
-                  setShowLogin(true);
-                  // Add a slight delay before focusing the input field to ensure it's visible
-                  setTimeout(() => emailRef.current?.focus(), 100);
-                } else if (formRef.current) {
-                  formRef.current.requestSubmit();
-                }
-              }}
-              variant="darkCTA"
-              className="w-full justify-center"
-              loading={loggingIn}>
-              {totpLogin ? "Submit" : "Login with Email"}
-            </Button>
+            {emailAuthEnabled && (
+              <Button
+                onClick={() => {
+                  if (!showLogin) {
+                    setShowLogin(true);
+                    // Add a slight delay before focusing the input field to ensure it's visible
+                    setTimeout(() => emailRef.current?.focus(), 100);
+                  } else if (formRef.current) {
+                    formRef.current.requestSubmit();
+                  }
+                }}
+                variant="darkCTA"
+                className="w-full justify-center"
+                loading={loggingIn}>
+                {totpLogin ? "Submit" : "Login with Email"}
+              </Button>
+            )}
           </form>
 
           {googleOAuthEnabled && !totpLogin && (
@@ -240,6 +244,7 @@ export const SigninForm = ({
           <br />
           <div className="flex flex-col">
             <button
+              type="button"
               className="font-semibold text-slate-600 underline hover:text-slate-700"
               onClick={() => {
                 setTotpBackup(true);
@@ -248,6 +253,7 @@ export const SigninForm = ({
             </button>
 
             <button
+              type="button"
               className="mt-4 font-semibold text-slate-600 underline hover:text-slate-700"
               onClick={() => {
                 setTotpLogin(false);
@@ -261,6 +267,7 @@ export const SigninForm = ({
       {totpBackup && (
         <div className="mt-9 text-center text-xs">
           <button
+            type="button"
             className="font-semibold text-slate-600 underline hover:text-slate-700"
             onClick={() => {
               setTotpBackup(false);

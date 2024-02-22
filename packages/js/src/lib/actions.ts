@@ -5,12 +5,18 @@ import { TSurvey } from "@formbricks/types/surveys";
 import { Config } from "./config";
 import { NetworkError, Result, err, okVoid } from "./errors";
 import { Logger } from "./logger";
+import { sync } from "./sync";
 import { renderWidget } from "./widget";
 
 const logger = Logger.getInstance();
 const config = Config.getInstance();
 
 const intentsToNotCreateOnApp = ["Exit Intent (Desktop)", "50% Scroll"];
+
+const shouldDisplayBasedOnPercentage = (displayPercentage: number) => {
+  const randomNum = Math.floor(Math.random() * 100) + 1;
+  return randomNum <= displayPercentage;
+};
 
 export const trackAction = async (
   name: string,
@@ -46,6 +52,13 @@ export const trackAction = async (
         responseMessage: res.error.message,
       });
     }
+
+    // sync again
+    await sync({
+      environmentId: config.get().environmentId,
+      apiHost: config.get().apiHost,
+      userId,
+    });
   }
 
   logger.debug(`Formbricks: Action "${name}" tracked`);
@@ -54,7 +67,7 @@ export const trackAction = async (
   const activeSurveys = config.get().state?.surveys;
 
   if (!!activeSurveys && activeSurveys.length > 0) {
-    triggerSurvey(name, activeSurveys);
+    await triggerSurvey(name, activeSurveys);
   } else {
     logger.debug("No active surveys to display");
   }
@@ -62,12 +75,20 @@ export const trackAction = async (
   return okVoid();
 };
 
-export const triggerSurvey = (actionName: string, activeSurveys: TSurvey[]): void => {
+export const triggerSurvey = async (actionName: string, activeSurveys: TSurvey[]): Promise<void> => {
   for (const survey of activeSurveys) {
+    // Check if the survey should be displayed based on displayPercentage
+    if (survey.displayPercentage) {
+      const shouldDisplaySurvey = shouldDisplayBasedOnPercentage(survey.displayPercentage);
+      if (!shouldDisplaySurvey) {
+        logger.debug("Survey display skipped based on displayPercentage.");
+        continue;
+      }
+    }
     for (const trigger of survey.triggers) {
       if (trigger === actionName) {
         logger.debug(`Formbricks: survey ${survey.id} triggered by action "${actionName}"`);
-        renderWidget(survey);
+        await renderWidget(survey);
         return;
       }
     }
