@@ -18,7 +18,7 @@ export default async function handle(req: NextApiRequest, res: NextApiResponse) 
         },
         {
           name: "Argos",
-          description: "Argos provides the developer tools to debug tests and detect visual regressions..",
+          description: "Argos provides the developer tools to debug tests and detect visual regressions.",
           href: "https://argos-ci.com",
         },
         {
@@ -198,6 +198,12 @@ export default async function handle(req: NextApiRequest, res: NextApiResponse) 
           description:
             "The .NET Web Framework for Makers. Build production ready, full-stack web applications fast without sweating the small stuff.",
           href: "https://spark-framework.net",
+        },
+        {
+          name: "Tiledesk",
+          description:
+            "The innovative open-source framework for developing LLM-enabled chatbots, Tiledesk empowers developers to create advanced, conversational AI agents.",
+          href: "https://tiledesk.com",
         },
         {
           name: "Tolgee",

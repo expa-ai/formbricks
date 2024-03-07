@@ -53,7 +53,10 @@ const ResponsePage = ({
 
   const { selectedFilter, dateRange, resetState } = useResponseFilter();
 
-  const filters = useMemo(() => getFormattedFilters(selectedFilter, dateRange), [selectedFilter, dateRange]);
+  const filters = useMemo(
+    () => getFormattedFilters(survey, selectedFilter, dateRange),
+    [survey, selectedFilter, dateRange]
+  );
 
   const searchParams = useSearchParams();
 
@@ -113,12 +116,7 @@ const ResponsePage = ({
         membershipRole={membershipRole}
       />
       <div className="flex gap-1.5">
-        <CustomFilter
-          environmentTags={environmentTags}
-          attributes={attributes}
-          responses={responses}
-          survey={survey}
-        />
+        <CustomFilter environmentTags={environmentTags} attributes={attributes} survey={survey} />
         <ResultsShareButton survey={survey} webAppUrl={webAppUrl} product={product} user={user} />
       </div>
       <SurveyResultsTabs activeId="responses" environmentId={environment.id} surveyId={surveyId} />

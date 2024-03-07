@@ -28,8 +28,10 @@ export default function SurveysList({
   userId,
 }: SurveysListProps) {
   const [filteredSurveys, setFilteredSurveys] = useState<TSurvey[]>(surveys);
-  // Initialize orientation state from localStorage or default to 'grid'
-  const [orientation, setOrientation] = useState(() => localStorage.getItem("surveyOrientation") || "grid");
+  // Initialize orientation state with a function that checks if window is defined
+  const [orientation, setOrientation] = useState(() =>
+    typeof localStorage !== "undefined" ? localStorage.getItem("surveyOrientation") || "grid" : "grid"
+  );
 
   // Save orientation to localStorage
   useEffect(() => {
@@ -68,6 +70,7 @@ export default function SurveysList({
               {filteredSurveys.map((survey) => {
                 return (
                   <SurveyCard
+                    key={survey.id}
                     survey={survey}
                     environment={environment}
                     otherEnvironment={otherEnvironment}
@@ -84,6 +87,7 @@ export default function SurveysList({
               {filteredSurveys.map((survey) => {
                 return (
                   <SurveyCard
+                    key={survey.id}
                     survey={survey}
                     environment={environment}
                     otherEnvironment={otherEnvironment}

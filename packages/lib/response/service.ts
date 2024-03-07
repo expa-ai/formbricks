@@ -15,6 +15,7 @@ import {
   TResponseLegacyInput,
   TResponseUpdateInput,
   TSurveyPersonAttributes,
+  TSurveySummary,
   ZResponse,
   ZResponseFilterCriteria,
   ZResponseInput,
@@ -24,15 +25,26 @@ import {
 } from "@formbricks/types/responses";
 import { TTag } from "@formbricks/types/tags";
 
-import { ITEMS_PER_PAGE, SERVICES_REVALIDATION_INTERVAL } from "../constants";
+import { ITEMS_PER_PAGE, SERVICES_REVALIDATION_INTERVAL, WEBAPP_URL } from "../constants";
 import { deleteDisplayByResponseId } from "../display/service";
 import { createPerson, getPerson, getPersonByUserId, transformPrismaPerson } from "../person/service";
-import { buildWhereClause, calculateTtcTotal } from "../response/util";
+import {
+  buildWhereClause,
+  calculateTtcTotal,
+  extractSurveyDetails,
+  getQuestionWiseSummary,
+  getResponsesFileName,
+  getResponsesJson,
+  getSurveySummaryDropOff,
+  getSurveySummaryMeta,
+} from "../response/util";
 import { responseNoteCache } from "../responseNote/cache";
 import { getResponseNotes } from "../responseNote/service";
+import { putFile } from "../storage/service";
 import { getSurvey } from "../survey/service";
 import { captureTelemetry } from "../telemetry";
 import { formatDateFields } from "../utils/datetime";
+import { convertToCsv, convertToXlsxBuffer } from "../utils/fileConversion";
 import { validateInputs } from "../utils/validate";
 import { responseCache } from "./cache";
 
@@ -507,6 +519,124 @@ export const getResponses = async (
   }));
 };
 
+export const getSurveySummary = (
+  surveyId: string,
+  filterCriteria?: TResponseFilterCriteria
+): Promise<TSurveySummary> => {
+  const summary = unstable_cache(
+    async () => {
+      validateInputs([surveyId, ZId], [filterCriteria, ZResponseFilterCriteria.optional()]);
+
+      const survey = await getSurvey(surveyId);
+
+      if (!survey) {
+        throw new ResourceNotFoundError("Survey", surveyId);
+      }
+
+      const batchSize = 3000;
+      const responseCount = await getResponseCountBySurveyId(surveyId);
+      const pages = Math.ceil(responseCount / batchSize);
+
+      const responsesArray = await Promise.all(
+        Array.from({ length: pages }, (_, i) => {
+          return getResponses(surveyId, i + 1, batchSize, filterCriteria);
+        })
+      );
+      const responses = responsesArray.flat();
+
+      const displayCount = await prisma.display.count({
+        where: {
+          surveyId,
+        },
+      });
+
+      const meta = getSurveySummaryMeta(responses, displayCount);
+      const dropOff = getSurveySummaryDropOff(survey, responses, displayCount);
+      const questionWiseSummary = getQuestionWiseSummary(survey, responses);
+
+      return { meta, dropOff, summary: questionWiseSummary };
+    },
+    [`getSurveySummary-${surveyId}-${JSON.stringify(filterCriteria)}`],
+    {
+      tags: [responseCache.tag.bySurveyId(surveyId)],
+      revalidate: SERVICES_REVALIDATION_INTERVAL,
+    }
+  )();
+
+  return summary;
+};
+
+export const getResponseDownloadUrl = async (
+  surveyId: string,
+  format: "csv" | "xlsx",
+  filterCriteria?: TResponseFilterCriteria
+): Promise<string> => {
+  try {
+    validateInputs([surveyId, ZId], [format, ZString], [filterCriteria, ZResponseFilterCriteria.optional()]);
+    const survey = await getSurvey(surveyId);
+
+    if (!survey) {
+      throw new ResourceNotFoundError("Survey", surveyId);
+    }
+
+    const environmentId = survey.environmentId as string;
+
+    const accessType = "private";
+    const batchSize = 3000;
+    const responseCount = await getResponseCountBySurveyId(surveyId);
+    const pages = Math.ceil(responseCount / batchSize);
+
+    const responsesArray = await Promise.all(
+      Array.from({ length: pages }, (_, i) => {
+        return getResponses(surveyId, i + 1, batchSize, filterCriteria);
+      })
+    );
+    const responses = responsesArray.flat();
+
+    const { metaDataFields, questions, hiddenFields, userAttributes } = extractSurveyDetails(
+      survey,
+      responses
+    );
+
+    const headers = [
+      "No.",
+      "Response ID",
+      "Timestamp",
+      "Finished",
+      "Survey ID",
+      "User ID",
+      "Notes",
+      "Tags",
+      ...metaDataFields,
+      ...questions,
+      ...hiddenFields,
+      ...userAttributes,
+    ];
+
+    const jsonData = getResponsesJson(survey, responses, questions, userAttributes, hiddenFields);
+
+    const fileName = getResponsesFileName(survey?.name || "", format);
+    let fileBuffer: Buffer;
+
+    if (format === "xlsx") {
+      fileBuffer = convertToXlsxBuffer(headers, jsonData);
+    } else {
+      const csvFile = await convertToCsv(headers, jsonData);
+      fileBuffer = Buffer.from(csvFile);
+    }
+
+    await putFile(fileName, fileBuffer, accessType, environmentId);
+
+    return `${WEBAPP_URL}/storage/${environmentId}/${accessType}/${fileName}`;
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      throw new DatabaseError(error.message);
+    }
+
+    throw error;
+  }
+};
+
 export const getResponsesByEnvironmentId = async (
   environmentId: string,
   page?: number
@@ -676,15 +806,19 @@ export const deleteResponse = async (responseId: string): Promise<TResponse> => 
   }
 };
 
-export const getResponseCountBySurveyId = async (surveyId: string): Promise<number> =>
+export const getResponseCountBySurveyId = async (
+  surveyId: string,
+  filterCriteria?: TResponseFilterCriteria
+): Promise<number> =>
   unstable_cache(
     async () => {
-      validateInputs([surveyId, ZId]);
+      validateInputs([surveyId, ZId], [filterCriteria, ZResponseFilterCriteria.optional()]);
 
       try {
         const responseCount = await prisma.response.count({
           where: {
             surveyId: surveyId,
+            ...buildWhereClause(filterCriteria),
           },
         });
         return responseCount;
